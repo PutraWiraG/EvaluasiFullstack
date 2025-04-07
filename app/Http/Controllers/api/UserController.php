@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 /**
  * @OA\Info(
@@ -255,18 +256,198 @@ class UserController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+ * @OA\Put(
+ *     path="/api/users/{id}",
+ *     tags={"Users"},
+ *     summary="Update data user berdasarkan ID",
+ *     description="Mengupdate data user berdasarkan ID. Email harus unik kecuali email milik user itu sendiri.",
+ *     @OA\Parameter(
+ *         name="id",
+ *         in="path",
+ *         required=true,
+ *         description="UUID dari user yang ingin diupdate",
+ *         @OA\Schema(type="string", format="uuid", example="a1b2c3d4-e5f6-7890-ab12-34567890cdef")
+ *     ),
+ *     @OA\RequestBody(
+ *         required=true,
+ *         @OA\JsonContent(
+ *             required={"name","email","age"},
+ *             @OA\Property(property="name", type="string", example="John Updated"),
+ *             @OA\Property(property="email", type="string", example="john.updated@example.com"),
+ *             @OA\Property(property="age", type="integer", example=30)
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=200,
+ *         description="Berhasil update data user",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=true),
+ *             @OA\Property(property="message", type="string", example="Berhasil Update Data User"),
+ *             @OA\Property(property="data", type="object",
+ *                 @OA\Property(property="id", type="string", example="a1b2c3d4-e5f6-7890-ab12-34567890cdef"),
+ *                 @OA\Property(property="name", type="string", example="John Updated"),
+ *                 @OA\Property(property="email", type="string", example="john.updated@example.com"),
+ *                 @OA\Property(property="age", type="integer", example=30),
+ *                 @OA\Property(property="created_at", type="string", example="2025-04-07T12:00:00.000000Z"),
+ *                 @OA\Property(property="updated_at", type="string", example="2025-04-07T12:30:00.000000Z")
+ *             )
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=401,
+ *         description="Validasi gagal",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Validasi Gagal!"),
+ *             @OA\Property(property="errors", type="object")
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=404,
+ *         description="Data user tidak ditemukan",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Data User Tidak Ditemukan")
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=500,
+ *         description="Gagal update data user",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Gagal Update Data User!"),
+ *             @OA\Property(property="errors", type="string", example="SQLSTATE[23000]...")
+ *         )
+ *     )
+ * )
+ */
+    public function update(Request $request, $id)
     {
-        //
+
+        Log::info('Request Update Data User.');
+        $user = User::find($id);
+        if(!$user){
+            Log::warning('Data User Tidak Ditemukan!');
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Data User Tidak Ditemukan'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name'  => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'age'   => 'required|integer|min:1'
+        ]);
+
+        if($validator->fails()){
+            Log::error('Validasi Gagal! - '. $validator->errors());
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Validasi Gagal!',
+                'errors' => $validator->errors()
+            ], 401);
+        }
+
+        try{
+
+            $user->name = $request->name;
+            $user->email = $request->email;
+            $user->age = $request->age;
+            $user->save();
+
+            Log::info('Berhasil Update Data User.');
+            return response()->json([
+                'status' => 'true',
+                'message' => 'Berhasil Update Data User',
+                'data' => $user
+            ], 200);
+
+        }catch(Exception $e){
+            Log::error('Gagal Update Data User. - '. $e->getMessage());
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Gagal Update Data User!',
+                'errors' => $e->getMessage()
+            ], 500);
+        }
+
     }
 
+
     /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+ * @OA\Delete(
+ *     path="/api/users/{id}",
+ *     tags={"Users"},
+ *     summary="Hapus data user berdasarkan ID",
+ *     description="Menghapus data user dari database berdasarkan ID.",
+ *     @OA\Parameter(
+ *         name="id",
+ *         in="path",
+ *         required=true,
+ *         description="UUID dari user yang ingin dihapus",
+ *         @OA\Schema(type="string", format="uuid", example="a1b2c3d4-e5f6-7890-ab12-34567890cdef")
+ *     ),
+ *     @OA\Response(
+ *         response=200,
+ *         description="Berhasil hapus data user",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Berhasil Hapus Data")
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=404,
+ *         description="Data user tidak ditemukan",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Data User Tidak Ditemukan!")
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=500,
+ *         description="Gagal hapus data user",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Gagal Hapus Data User"),
+ *             @OA\Property(property="errors", type="string", example="SQLSTATE[23000]...")
+ *         )
+ *     )
+ * )
+ */
+
+    public function destroy($id)
     {
-        //
+        Log::info("Request Delete Data User");
+        $user = User::find($id);
+
+        if(!$user){
+            Log::warning('Data User Tidak Ditemukan!');
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Data User Tidak Ditemukan!'
+            ], 404);
+        }
+
+        try{
+
+            $user->delete();
+
+            Log::info('Berhasil Hapus Data User');
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Berhasil Hapus Data'
+            ], 200);
+
+
+        }catch(Exception $e){
+            Log::error('Gagal Hapus Data User. - '. $e->getMessage());
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Gagal Hapus Data User',
+                'errors' => $e->getMessage()
+            ], 500);
+        }
+
     }
 }
