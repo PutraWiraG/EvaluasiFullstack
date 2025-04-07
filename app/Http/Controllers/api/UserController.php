@@ -173,12 +173,85 @@ class UserController extends Controller
 
     }
 
+
     /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+ * @OA\Get(
+ *     path="/api/users/{id}",
+ *     tags={"Users"},
+ *     summary="Ambil data user berdasarkan ID",
+ *     description="Mengambil data user dari database berdasarkan UUID.",
+ *     @OA\Parameter(
+ *         name="id",
+ *         in="path",
+ *         required=true,
+ *         description="ID (UUID) dari user",
+ *         @OA\Schema(type="string", format="uuid", example="a1b2c3d4-e5f6-7890-ab12-34567890cdef")
+ *     ),
+ *     @OA\Response(
+ *         response=200,
+ *         description="Data user ditemukan",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=true),
+ *             @OA\Property(property="message", type="string", example="Data User Ditemukan"),
+ *             @OA\Property(property="data", type="object",
+ *                 @OA\Property(property="id", type="string", example="a1b2c3d4-e5f6-7890-ab12-34567890cdef"),
+ *                 @OA\Property(property="name", type="string", example="John Doe"),
+ *                 @OA\Property(property="email", type="string", example="john@example.com"),
+ *                 @OA\Property(property="age", type="integer", example=25),
+ *                 @OA\Property(property="created_at", type="string", example="2025-04-07T12:00:00.000000Z"),
+ *                 @OA\Property(property="updated_at", type="string", example="2025-04-07T12:00:00.000000Z")
+ *             )
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=404,
+ *         description="Data user tidak ditemukan",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Data User Tidak Ditemukan!")
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=500,
+ *         description="Terjadi kesalahan saat mengambil data",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Gagal Mengambil Data!"),
+ *             @OA\Property(property="errors", type="string", example="SQLSTATE[23000]...")
+ *         )
+ *     )
+ * )
+ */
+    public function show($id)
     {
-        //
+        Log::info('Request Ambil Data User Berdasarkan ID');
+        try{
+
+            $user = User::find($id);
+
+            if(!$user){
+                Log::warning("Data User Tidak Ditemukan.");
+                return response()->json([
+                    'status' => 'false',
+                    'message' => 'Data User Tidak Ditemukan!'
+                ], 404);
+            }
+
+            Log::info('Data User Ditemukan');
+            return response()->json([
+                'status' => 'true',
+                'message' => 'Data User Ditemukan',
+                'data' => $user
+            ], 200);
+
+        }catch(Exception $e){
+            Log::error('Gagal Mengambil Data. - '. $e->getMessage());
+            return response()->json([
+                'status' => 'false',
+                'message' => 'Gagal Mengambil Data!',
+                'errors' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
